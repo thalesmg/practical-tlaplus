@@ -2,14 +2,22 @@
 
 EXTENDS Sequences, Integers, TLC
 
+BinTypes == {"trash", "recycle"}
+SetsOfFour(set) == set \X set \X set \X set
+Items == [type: BinTypes, size: 1..6]
+
 (*--algorithm recycle
 variables
     capacity \in [trash: 1..10, recycle: 1..10],
     bins = [trash |-> <<>>, recycle |-> <<>>],
     count = [trash |-> 0, recycle |-> 0],
-    item = [type: {"trash", "recycle"}, size: 1..6],
-    items \in item \X item \X item \X item;
+    items \in SetsOfFour(Items);
     curr = ""; \* helper: current item
+
+define
+  NoBinOverflow == capacity.trash >= 0 /\ capacity.recycle >= 0
+  CountsMatchUp == Len(bins.trash) = count.trash /\ Len(bins.recycle) = count.recycle
+end define;
 
 macro add_item(type) begin
   bins[type] := Append(bins[type], curr);
@@ -28,21 +36,23 @@ begin
     end if;
   end while;
 
-  assert capacity.trash >= 0 /\ capacity.recycle >= 0;
-  assert Len(bins.trash) = count.trash;
-  assert Len(bins.recycle) = count.recycle;
+  assert NoBinOverflow /\ CountsMatchUp
 end algorithm; *)
 \* BEGIN TRANSLATION
-VARIABLES capacity, bins, count, item, items, curr, pc
+VARIABLES capacity, bins, count, items, curr, pc
 
-vars == << capacity, bins, count, item, items, curr, pc >>
+(* define statement *)
+NoBinOverflow == capacity.trash >= 0 /\ capacity.recycle >= 0
+CountsMatchUp == Len(bins.trash) = count.trash /\ Len(bins.recycle) = count.recycle
+
+
+vars == << capacity, bins, count, items, curr, pc >>
 
 Init == (* Global variables *)
         /\ capacity \in [trash: 1..10, recycle: 1..10]
         /\ bins = [trash |-> <<>>, recycle |-> <<>>]
         /\ count = [trash |-> 0, recycle |-> 0]
-        /\ item = [type: {"trash", "recycle"}, size: 1..6]
-        /\ items \in item \X item \X item \X item
+        /\ items \in SetsOfFour(Items)
         /\ curr = ""
         /\ pc = "Lbl_1"
 
@@ -62,15 +72,10 @@ Lbl_1 == /\ pc = "Lbl_1"
                                           /\ UNCHANGED << capacity, bins, 
                                                           count >>
                     /\ pc' = "Lbl_1"
-               ELSE /\ Assert(capacity.trash >= 0 /\ capacity.recycle >= 0, 
-                              "Failure of assertion at line 31, column 3.")
-                    /\ Assert(Len(bins.trash) = count.trash, 
-                              "Failure of assertion at line 32, column 3.")
-                    /\ Assert(Len(bins.recycle) = count.recycle, 
-                              "Failure of assertion at line 33, column 3.")
+               ELSE /\ Assert(NoBinOverflow /\ CountsMatchUp, 
+                              "Failure of assertion at line 39, column 3.")
                     /\ pc' = "Done"
                     /\ UNCHANGED << capacity, bins, count, items, curr >>
-         /\ item' = item
 
 Next == Lbl_1
            \/ (* Disjunct to prevent deadlock on termination *)
@@ -84,5 +89,5 @@ Termination == <>(pc = "Done")
 
 =============================================================================
 \* Modification History
-\* Last modified Wed Jan 02 12:50:23 BRST 2019 by thales
+\* Last modified Wed Jan 02 13:25:33 BRST 2019 by thales
 \* Created Wed Jan 02 12:18:23 BRST 2019 by thales
