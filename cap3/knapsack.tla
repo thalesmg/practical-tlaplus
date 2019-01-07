@@ -1,12 +1,18 @@
 ------------------------------ MODULE knapsack ------------------------------
 
 EXTENDS TLC, Integers, Sequences
+CONSTANTS Capacity, Items, ValueRange, SizeRange
+
+ASSUME Capacity > 0
+ASSUME SizeRange \subseteq 1..Capacity
+ASSUME \A v \in ValueRange: v >= 0
 
 PT == INSTANCE PT
 
-Capacity == 7
+(*Capacity == 7
 Items == {"a", "b", "c"}
-ItemParams == [size: 2..4, value: 0..5]
+*)
+ItemParams == [size: SizeRange, value: ValueRange]
 ItemSets == [Items -> ItemParams]
 
 KnapsackSize(sack, itemset) ==
@@ -49,10 +55,34 @@ BestKnapsacks(itemset) ==
 (*--algorithm debug
 variables itemset \in ItemSets
 begin
-  assert BestKnapsack(itemset) \in ValidKnapsacks(itemset);
+  assert BestKnapsack(itemset) \in ValidKnapsacks(itemset)
 end algorithm; *)
+\* BEGIN TRANSLATION
+VARIABLES itemset, pc
+
+vars == << itemset, pc >>
+
+Init == (* Global variables *)
+        /\ itemset \in ItemSets
+        /\ pc = "Lbl_1"
+
+Lbl_1 == /\ pc = "Lbl_1"
+         /\ Assert(BestKnapsack(itemset) \in ValidKnapsacks(itemset), 
+                   "Failure of assertion at line 58, column 3.")
+         /\ pc' = "Done"
+         /\ UNCHANGED itemset
+
+Next == Lbl_1
+           \/ (* Disjunct to prevent deadlock on termination *)
+              (pc = "Done" /\ UNCHANGED vars)
+
+Spec == Init /\ [][Next]_vars
+
+Termination == <>(pc = "Done")
+
+\* END TRANSLATION
 
 =============================================================================
 \* Modification History
-\* Last modified Mon Jan 07 12:54:59 BRST 2019 by thales
+\* Last modified Mon Jan 07 13:36:22 BRST 2019 by thales
 \* Created Mon Jan 07 12:24:55 BRST 2019 by thales
