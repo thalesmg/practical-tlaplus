@@ -55,7 +55,7 @@ BestKnapsacks(itemset) ==
 (*--algorithm debug
 variables itemset \in ItemSets
 begin
-  assert BestKnapsack(itemset) \in ValidKnapsacks(itemset)
+  assert BestKnapsacks(itemset) \subseteq ValidKnapsacks(itemset)
 end algorithm; *)
 \* BEGIN TRANSLATION
 VARIABLES itemset, pc
@@ -67,7 +67,7 @@ Init == (* Global variables *)
         /\ pc = "Lbl_1"
 
 Lbl_1 == /\ pc = "Lbl_1"
-         /\ Assert(BestKnapsack(itemset) \in ValidKnapsacks(itemset), 
+         /\ Assert(BestKnapsacks(itemset) \subseteq ValidKnapsacks(itemset), 
                    "Failure of assertion at line 58, column 3.")
          /\ pc' = "Done"
          /\ UNCHANGED itemset
@@ -84,5 +84,5 @@ Termination == <>(pc = "Done")
 
 =============================================================================
 \* Modification History
-\* Last modified Mon Jan 07 13:36:22 BRST 2019 by thales
+\* Last modified Wed Jan 09 12:33:17 BRST 2019 by thales
 \* Created Mon Jan 07 12:24:55 BRST 2019 by thales
