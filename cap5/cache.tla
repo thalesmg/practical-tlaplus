@@ -45,7 +45,7 @@ begin
 end process;
 
 end algorithm; *)
-\* BEGIN TRANSLATION
+\* BEGIN TRANSLATION (chksum(pcal) = "31cdd6fd" /\ chksum(tla) = "abe69fa1")
 VARIABLES resources_cap, resources_left, reserved, pc
 
 (* define statement *)
@@ -103,5 +103,5 @@ Spec == Init /\ [][Next]_vars
 
 =============================================================================
 \* Modification History
-\* Last modified Mon Jan 14 13:25:24 BRST 2019 by thales
+\* Last modified Tue Feb 23 08:28:27 BRT 2021 by thales
 \* Created Wed Jan 09 13:28:05 BRST 2019 by thales
