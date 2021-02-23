@@ -32,6 +32,16 @@ BestKnapsack(itemset) ==
     \A worse \in all \ {best}:
     KnapsackValue(best, itemset) > KnapsackValue(worse, itemset)
 
+BestKnapsacksOne(itemset) ==
+  LET all == ValidKnapsacks(itemset)
+  IN
+    CHOOSE all_the_best \in SUBSET all:
+      \A good \in all_the_best:
+        /\ CHOOSE other \in all_the_best:
+          KnapsackValue(other, itemset) = KnapsackValue(good, itemset)
+        /\ CHOOSE worse \in all \ all_the_best:
+          KnapsackValue(worse, itemset) < KnapsackValue(good, itemset)
+
 BestKnapsacksTwo(itemset) ==
   LET
     all == ValidKnapsacks(itemset)
@@ -55,9 +65,11 @@ BestKnapsacks(itemset) ==
 (*--algorithm debug
 variables itemset \in ItemSets
 begin
+  \* assert BestKnapsack(itemset) \in ValidKnapsacks(itemset)
+  \* assert BestKnapsacksOne(itemset) \subseteq ValidKnapsacks(itemset)
   assert BestKnapsacks(itemset) \subseteq ValidKnapsacks(itemset)
 end algorithm; *)
-\* BEGIN TRANSLATION
+\* BEGIN TRANSLATION (chksum(pcal) = "c0d11dc1" /\ chksum(tla) = "45b82017")
 VARIABLES itemset, pc
 
 vars == << itemset, pc >>
@@ -67,14 +79,16 @@ Init == (* Global variables *)
         /\ pc = "Lbl_1"
 
 Lbl_1 == /\ pc = "Lbl_1"
-         /\ Assert(BestKnapsacks(itemset) \subseteq ValidKnapsacks(itemset), 
-                   "Failure of assertion at line 58, column 3.")
+         /\ Assert(BestKnapsacksOne(itemset) \subseteq ValidKnapsacks(itemset),
+                   "Failure of assertion at line 69, column 3.")
          /\ pc' = "Done"
          /\ UNCHANGED itemset
 
+(* Allow infinite stuttering to prevent deadlock on termination. *)
+Terminating == pc = "Done" /\ UNCHANGED vars
+
 Next == Lbl_1
-           \/ (* Disjunct to prevent deadlock on termination *)
-              (pc = "Done" /\ UNCHANGED vars)
+           \/ Terminating
 
 Spec == Init /\ [][Next]_vars
 
@@ -84,5 +98,5 @@ Termination == <>(pc = "Done")
 
 =============================================================================
 \* Modification History
-\* Last modified Wed Jan 09 12:33:17 BRST 2019 by thales
+\* Last modified Thu Feb 18 09:28:17 BRT 2021 by thales
 \* Created Mon Jan 07 12:24:55 BRST 2019 by thales

@@ -27,7 +27,7 @@ process Wire \in 1..2
 end process;            
            
 end algorithm;*)
-\* BEGIN TRANSLATION
+\* BEGIN TRANSLATION PCal-abed4595ab5f660e99e6373a12aec987
 VARIABLES people, acc, pc
 
 (* define statement *)
@@ -64,17 +64,20 @@ Deposit(self) == /\ pc[self] = "Deposit"
 
 Wire(self) == CheckFunds(self) \/ Deposit(self)
 
+(* Allow infinite stuttering to prevent deadlock on termination. *)
+Terminating == /\ \A self \in ProcSet: pc[self] = "Done"
+               /\ UNCHANGED vars
+
 Next == (\E self \in 1..2: Wire(self))
-           \/ (* Disjunct to prevent deadlock on termination *)
-              ((\A self \in ProcSet: pc[self] = "Done") /\ UNCHANGED vars)
+           \/ Terminating
 
 Spec == Init /\ [][Next]_vars
 
 Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 
-\* END TRANSLATION
+\* END TRANSLATION TLA-a22177ae73e0dc9f1f587ff0d2ef90ea
 
 =============================================================================
 \* Modification History
-\* Last modified Sun Dec 30 20:49:59 BRST 2018 by thales
+\* Last modified Thu Feb 11 18:31:14 BRT 2021 by thales
 \* Created Sun Dec 30 20:28:35 BRST 2018 by thales

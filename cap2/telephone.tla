@@ -37,7 +37,7 @@ begin
 
 assert received = <<1,2,3>>;
 end algorithm; *)
-\* BEGIN TRANSLATION
+\* BEGIN TRANSLATION - the hash of the PCal code: PCal-637299c34923f547c553473a5ee65e3c
 VARIABLES to_send, received, in_transit, can_send, pc
 
 vars == << to_send, received, in_transit, can_send, pc >>
@@ -76,17 +76,19 @@ Lbl_2 == /\ pc = "Lbl_2"
          /\ pc' = "Lbl_1"
          /\ UNCHANGED to_send
 
+(* Allow infinite stuttering to prevent deadlock on termination. *)
+Terminating == pc = "Done" /\ UNCHANGED vars
+
 Next == Lbl_1 \/ Lbl_2
-           \/ (* Disjunct to prevent deadlock on termination *)
-              (pc = "Done" /\ UNCHANGED vars)
+           \/ Terminating
 
 Spec == Init /\ [][Next]_vars
 
 Termination == <>(pc = "Done")
 
-\* END TRANSLATION
+\* END TRANSLATION - the hash of the generated TLA code (remove to silence divergence warnings): TLA-5b7b79d5e37432792aa06513128e23d3
 
 =============================================================================
 \* Modification History
-\* Last modified Wed Jan 02 13:11:40 BRST 2019 by thales
+\* Last modified Fri Feb 12 16:03:44 BRT 2021 by thales
 \* Created Wed Jan 02 12:55:16 BRST 2019 by thales

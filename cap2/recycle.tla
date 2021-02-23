@@ -38,7 +38,7 @@ begin
 
   assert NoBinOverflow /\ CountsMatchUp
 end algorithm; *)
-\* BEGIN TRANSLATION
+\* BEGIN TRANSLATION PCal-44be54a6d01632bd1c9d5206e5e8d430
 VARIABLES capacity, bins, count, items, curr, pc
 
 (* define statement *)
@@ -77,17 +77,19 @@ Lbl_1 == /\ pc = "Lbl_1"
                     /\ pc' = "Done"
                     /\ UNCHANGED << capacity, bins, count, items, curr >>
 
+(* Allow infinite stuttering to prevent deadlock on termination. *)
+Terminating == pc = "Done" /\ UNCHANGED vars
+
 Next == Lbl_1
-           \/ (* Disjunct to prevent deadlock on termination *)
-              (pc = "Done" /\ UNCHANGED vars)
+           \/ Terminating
 
 Spec == Init /\ [][Next]_vars
 
 Termination == <>(pc = "Done")
 
-\* END TRANSLATION
+\* END TRANSLATION TLA-9d06ec6fb2f26dcbd8207196d0059a1f
 
 =============================================================================
 \* Modification History
-\* Last modified Wed Jan 02 13:25:33 BRST 2019 by thales
+\* Last modified Fri Feb 12 12:03:24 BRT 2021 by thales
 \* Created Wed Jan 02 12:18:23 BRST 2019 by thales
