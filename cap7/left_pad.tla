@@ -16,7 +16,7 @@ Characters == {"a", "b", "c"}
 (*--algorithm left_pad
 variables
   in_c \in Characters \union {" "},
-  in_n \in 0..6,
+  in_n \in -1..6,
   in_str \in PT!SeqOf(Characters, 6),
   output;
 
@@ -27,7 +27,7 @@ begin
   end while;
   assert output = LeftPad(in_c, in_n, in_str);
 end algorithm; *)
-\* BEGIN TRANSLATION (chksum(pcal) = "12089528" /\ chksum(tla) = "e4446f36")
+\* BEGIN TRANSLATION (chksum(pcal) = "b1a20f12" /\ chksum(tla) = "a797238a")
 CONSTANT defaultInitValue
 VARIABLES in_c, in_n, in_str, output, pc
 
@@ -35,7 +35,7 @@ vars == << in_c, in_n, in_str, output, pc >>
 
 Init == (* Global variables *)
         /\ in_c \in (Characters \union {" "})
-        /\ in_n \in 0..6
+        /\ in_n \in -1..6
         /\ in_str \in PT!SeqOf(Characters, 6)
         /\ output = defaultInitValue
         /\ pc = "Lbl_1"
