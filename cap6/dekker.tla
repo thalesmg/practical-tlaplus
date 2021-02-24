@@ -1,9 +1,9 @@
 ---- MODULE dekker ----
 
 EXTENDS TLC, Integers, Sequences
-\* CONSTANT Threads
+CONSTANT Threads
 
-Threads == 1..2
+\* Threads == 1..2
 
 (*--algorithm dekker
 variables
@@ -32,33 +32,32 @@ begin
   P5: goto P1;
 end procedure;
 
-fair process fair_thread \in {1}
+fair process fair_thread \in Threads
 begin
   Fair:
     call thread();
 end process;
 
-process crashable_thread \in {2}
-begin
-  Crash:
-    call thread();
-end process;
+\* process crashable_thread \in {2}
+\* begin
+\*   Crash:
+\*     call thread();
+\* end process;
 
 end algorithm; *)
 
-\* BEGIN TRANSLATION (chksum(pcal) = "ca1e1131" /\ chksum(tla) = "c36c25a1")
+\* BEGIN TRANSLATION (chksum(pcal) = "f4dcb3ff" /\ chksum(tla) = "cdee65c8")
 VARIABLES flag, next_thread, pc, stack
 
 vars == << flag, next_thread, pc, stack >>
 
-ProcSet == ({1}) \cup ({2})
+ProcSet == (Threads)
 
 Init == (* Global variables *)
         /\ flag = [t \in Threads |-> FALSE]
         /\ next_thread \in Threads
         /\ stack = [self \in ProcSet |-> << >>]
-        /\ pc = [self \in ProcSet |-> CASE self \in {1} -> "Fair"
-                                        [] self \in {2} -> "Crash"]
+        /\ pc = [self \in ProcSet |-> "Fair"]
 
 P1(self) == /\ pc[self] = "P1"
             /\ flag' = [flag EXCEPT ![self] = TRUE]
@@ -125,26 +124,16 @@ Fair(self) == /\ pc[self] = "Fair"
 
 fair_thread(self) == Fair(self)
 
-Crash(self) == /\ pc[self] = "Crash"
-               /\ stack' = [stack EXCEPT ![self] = << [ procedure |->  "thread",
-                                                        pc        |->  "Done" ] >>
-                                                    \o stack[self]]
-               /\ pc' = [pc EXCEPT ![self] = "P1"]
-               /\ UNCHANGED << flag, next_thread >>
-
-crashable_thread(self) == Crash(self)
-
 (* Allow infinite stuttering to prevent deadlock on termination. *)
 Terminating == /\ \A self \in ProcSet: pc[self] = "Done"
                /\ UNCHANGED vars
 
 Next == (\E self \in ProcSet: thread(self))
-           \/ (\E self \in {1}: fair_thread(self))
-           \/ (\E self \in {2}: crashable_thread(self))
+           \/ (\E self \in Threads: fair_thread(self))
            \/ Terminating
 
 Spec == /\ Init /\ [][Next]_vars
-        /\ \A self \in {1} : WF_vars(fair_thread(self)) /\ WF_vars(thread(self))
+        /\ \A self \in Threads : WF_vars(fair_thread(self)) /\ WF_vars(thread(self))
 
 Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 
@@ -155,7 +144,7 @@ ThereCanBeOnlyOne ==
     t1 /= t2 => ~( pc[t1] = "CS" /\ pc[t2] = "CS" )
 
 Liveness ==
-  \A t \in {1}:
+  \A t \in Threads:
     <>( pc[t] = "CS" )
 
 ===========================
