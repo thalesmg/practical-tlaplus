@@ -10,11 +10,16 @@ variables
   flag = [t \in Threads |-> FALSE],
   next_thread \in Threads;
 
+define
+  Max(xs) == CHOOSE x \in xs: \A y \in xs \ {x}: x >= y
+  NextThread(current) == IF current = Max(Threads) THEN 1 ELSE current + 1
+end define;
+
 procedure thread()
 begin
   P1: flag[self] := TRUE;
   P2:
-    while \E t \in Threads \ {self} : flag[t] do
+    while next_thread /= self \/ \E t \in Threads \ {self} : flag[t] do
       P2_1:
         if next_thread /= self then
           P2_1_1: flag[self] := FALSE;
@@ -24,10 +29,7 @@ begin
     end while;
   \* critical section
   CS: skip;
-  P3:
-    with t \in Threads \ {self} do
-      next_thread := t;
-    end with;
+  P3: next_thread := NextThread(next_thread);
   P4: flag[self] := FALSE;
   P5: goto P1;
 end procedure;
@@ -46,8 +48,13 @@ end process;
 
 end algorithm; *)
 
-\* BEGIN TRANSLATION (chksum(pcal) = "f4dcb3ff" /\ chksum(tla) = "cdee65c8")
+\* BEGIN TRANSLATION (chksum(pcal) = "66b63d51" /\ chksum(tla) = "7c53e61b")
 VARIABLES flag, next_thread, pc, stack
+
+(* define statement *)
+Max(xs) == CHOOSE x \in xs: \A y \in xs \ {x}: x >= y
+NextThread(current) == IF current = Max(Threads) THEN 1 ELSE current + 1
+
 
 vars == << flag, next_thread, pc, stack >>
 
@@ -65,7 +72,7 @@ P1(self) == /\ pc[self] = "P1"
             /\ UNCHANGED << next_thread, stack >>
 
 P2(self) == /\ pc[self] = "P2"
-            /\ IF \E t \in Threads \ {self} : flag[t]
+            /\ IF next_thread /= self \/ \E t \in Threads \ {self} : flag[t]
                   THEN /\ pc' = [pc EXCEPT ![self] = "P2_1"]
                   ELSE /\ pc' = [pc EXCEPT ![self] = "CS"]
             /\ UNCHANGED << flag, next_thread, stack >>
@@ -97,8 +104,7 @@ CS(self) == /\ pc[self] = "CS"
             /\ UNCHANGED << flag, next_thread, stack >>
 
 P3(self) == /\ pc[self] = "P3"
-            /\ \E t \in Threads \ {self}:
-                 next_thread' = t
+            /\ next_thread' = NextThread(next_thread)
             /\ pc' = [pc EXCEPT ![self] = "P4"]
             /\ UNCHANGED << flag, stack >>
 
