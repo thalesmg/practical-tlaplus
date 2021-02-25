@@ -14,14 +14,14 @@ end define;
 fair process incrementer \in 1..3
 variable local = 0
 begin
-  Get:
+  GetAndIncrement:
     local := counter;
-  Increment:
+  \* Increment:
     counter := local + 1;
 end process;
 
 end algorithm;*)
-\* BEGIN TRANSLATION (chksum(pcal) = "c9c84a96" /\ chksum(tla) = "258d42fc")
+\* BEGIN TRANSLATION (chksum(pcal) = "c15dfb6" /\ chksum(tla) = "a587a8b9")
 VARIABLES goal, counter, pc
 
 (* define statement *)
@@ -38,19 +38,15 @@ Init == (* Global variables *)
         /\ counter = 0
         (* Process incrementer *)
         /\ local = [self \in 1..3 |-> 0]
-        /\ pc = [self \in ProcSet |-> "Get"]
+        /\ pc = [self \in ProcSet |-> "GetAndIncrement"]
 
-Get(self) == /\ pc[self] = "Get"
-             /\ local' = [local EXCEPT ![self] = counter]
-             /\ pc' = [pc EXCEPT ![self] = "Increment"]
-             /\ UNCHANGED << goal, counter >>
+GetAndIncrement(self) == /\ pc[self] = "GetAndIncrement"
+                         /\ local' = [local EXCEPT ![self] = counter]
+                         /\ counter' = local'[self] + 1
+                         /\ pc' = [pc EXCEPT ![self] = "Done"]
+                         /\ goal' = goal
 
-Increment(self) == /\ pc[self] = "Increment"
-                   /\ counter' = local[self] + 1
-                   /\ pc' = [pc EXCEPT ![self] = "Done"]
-                   /\ UNCHANGED << goal, local >>
-
-incrementer(self) == Get(self) \/ Increment(self)
+incrementer(self) == GetAndIncrement(self)
 
 (* Allow infinite stuttering to prevent deadlock on termination. *)
 Terminating == /\ \A self \in ProcSet: pc[self] = "Done"
