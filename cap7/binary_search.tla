@@ -20,24 +20,34 @@ Pow2(n) ==
       ELSE 2 * f[x - 1]
   IN f[n]
 
-(*--algorithm definetively_binary_search
+(*--algorithm binary_search
 variables
   i = 1,
   seq \in OrderedSeqOf(1..MaxInt, MaxInt),
+  low = 1,
+  high = Len(seq),
   target \in 1..MaxInt,
   found_index = 0,
   counter = 0;
 
 begin
   Search:
-    while i <= Len(seq) do
+    while low <= high do
       counter := counter + 1;
-      if seq[i] = target then
-        found_index := i;
-        goto Result;
-      else
-        i := i + 1;
-      end if;
+      with
+        lh = high - low,
+        m = high - (lh \div 2)
+      do
+        assert lh <= MaxInt;
+        if seq[m] = target then
+          found_index := m;
+          goto Result;
+        elsif seq[m] > target then
+          high := m - 1;
+        else
+          low := m + 1;
+        end if;
+      end with;
     end while;
   Result:
     if target \in Range(seq) then
@@ -50,45 +60,55 @@ begin
       assert Pow2(counter - 1) <= Len(seq);
     end if;
 end algorithm;*)
-\* BEGIN TRANSLATION (chksum(pcal) = "623ed8c5" /\ chksum(tla) = "383b1072")
-VARIABLES i, seq, target, found_index, counter, pc
+\* BEGIN TRANSLATION (chksum(pcal) = "d5abfffb" /\ chksum(tla) = "a87929a5")
+VARIABLES i, seq, low, high, target, found_index, counter, pc
 
-vars == << i, seq, target, found_index, counter, pc >>
+vars == << i, seq, low, high, target, found_index, counter, pc >>
 
 Init == (* Global variables *)
         /\ i = 1
         /\ seq \in OrderedSeqOf(1..MaxInt, MaxInt)
+        /\ low = 1
+        /\ high = Len(seq)
         /\ target \in 1..MaxInt
         /\ found_index = 0
         /\ counter = 0
         /\ pc = "Search"
 
 Search == /\ pc = "Search"
-          /\ IF i <= Len(seq)
+          /\ IF low <= high
                 THEN /\ counter' = counter + 1
-                     /\ IF seq[i] = target
-                           THEN /\ found_index' = i
-                                /\ pc' = "Result"
-                                /\ i' = i
-                           ELSE /\ i' = i + 1
-                                /\ pc' = "Search"
-                                /\ UNCHANGED found_index
+                     /\ LET lh == high - low IN
+                          LET m == high - (lh \div 2) IN
+                            /\ Assert(lh <= MaxInt, 
+                                      "Failure of assertion at line 41, column 9.")
+                            /\ IF seq[m] = target
+                                  THEN /\ found_index' = m
+                                       /\ pc' = "Result"
+                                       /\ UNCHANGED << low, high >>
+                                  ELSE /\ IF seq[m] > target
+                                             THEN /\ high' = m - 1
+                                                  /\ low' = low
+                                             ELSE /\ low' = m + 1
+                                                  /\ high' = high
+                                       /\ pc' = "Search"
+                                       /\ UNCHANGED found_index
                 ELSE /\ pc' = "Result"
-                     /\ UNCHANGED << i, found_index, counter >>
-          /\ UNCHANGED << seq, target >>
+                     /\ UNCHANGED << low, high, found_index, counter >>
+          /\ UNCHANGED << i, seq, target >>
 
 Result == /\ pc = "Result"
           /\ IF target \in Range(seq)
                 THEN /\ Assert(seq[found_index] = target, 
-                               "Failure of assertion at line 44, column 7.")
+                               "Failure of assertion at line 54, column 7.")
                 ELSE /\ Assert(found_index = 0, 
-                               "Failure of assertion at line 46, column 7.")
+                               "Failure of assertion at line 56, column 7.")
           /\ IF Len(seq) > 0
                 THEN /\ Assert(Pow2(counter - 1) <= Len(seq), 
-                               "Failure of assertion at line 50, column 7.")
+                               "Failure of assertion at line 60, column 7.")
                 ELSE /\ TRUE
           /\ pc' = "Done"
-          /\ UNCHANGED << i, seq, target, found_index, counter >>
+          /\ UNCHANGED << i, seq, low, high, target, found_index, counter >>
 
 (* Allow infinite stuttering to prevent deadlock on termination. *)
 Terminating == pc = "Done" /\ UNCHANGED vars
