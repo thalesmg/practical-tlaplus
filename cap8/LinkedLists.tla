@@ -1,8 +1,13 @@
 ---- MODULE LinkedLists ----
 
 CONSTANT NULL
-LOCAL INSTANCE TLC \* Assert
 
+LOCAL INSTANCE TLC \* Assert
+LOCAL INSTANCE FiniteSets \* Cardinality
+LOCAL INSTANCE Sequences \* Len
+LOCAL INSTANCE Integers \* ..
+
+\* conjunto de funções
 PointerMaps(Nodes) == [Nodes -> Nodes \union {NULL}]
 
 Range(f) == {f[i] : i \in DOMAIN f}
@@ -10,7 +15,7 @@ Range(f) == {f[i] : i \in DOMAIN f}
 IsLinkedList(PointerMap) ==
   LET
     nodes == DOMAIN PointerMap
-    all_seqs == [1..Cardinality(nodes) |-> nodes]
+    all_seqs == [1..Cardinality(nodes) -> nodes]
   IN
     \E ordering \in all_seqs:
       \* cada nó aponta para o próximo na ordenação
@@ -26,6 +31,13 @@ IsLinkedList(PointerMap) ==
 
 LinkedLists(Nodes) ==
   IF NULL \in Nodes THEN Assert(FALSE, "NULL não pode estar entre os nós") ELSE
-    {pm \in PointerMaps(Nodes) : IsLinkedList(pm)}
+    LET
+      node_subsets == SUBSET Nodes \ {{}}
+      \* conjunto de conjunto de funções
+      pointer_maps_sets == {PointerMaps(subset) : subset \in node_subsets}
+      \* conjunto de funções
+      all_pointer_maps == UNION pointer_maps_sets
+    IN
+      {pm \in all_pointer_maps : IsLinkedList(pm)}
 
 ============================
