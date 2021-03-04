@@ -29,6 +29,19 @@ IsLinkedList(PointerMap) ==
       \*      \E i \in 1..Len(ordering):
       \*         ordering[i] = node
 
+Ring(LL) == (DOMAIN LL = Range(LL))
+
+\* First(LL) ==
+\*   IF Ring(LL)
+\*   THEN CHOOSE n \in DOMAIN LL: TRUE
+\*   ELSE CHOOSE n \in DOMAIN LL: n \notin Range(LL)
+
+First(LL) ==
+  CHOOSE n \in DOMAIN LL:
+    ~Ring(LL) => n \notin Range(LL)
+
+Cyclic(LL) == NULL \notin Range(LL)
+
 LinkedLists(Nodes) ==
   IF NULL \in Nodes THEN Assert(FALSE, "NULL não pode estar entre os nós") ELSE
     LET
