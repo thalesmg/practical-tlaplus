@@ -42,6 +42,9 @@ First(LL) ==
 
 Cyclic(LL) == NULL \notin Range(LL)
 
+Parents(LL, Node) ==
+  {p \in DOMAIN LL: LL[p] = Node}
+
 LinkedLists(Nodes) ==
   IF NULL \in Nodes THEN Assert(FALSE, "NULL não pode estar entre os nós") ELSE
     LET
