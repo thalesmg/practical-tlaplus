@@ -6,7 +6,7 @@ CONSTANTS NULL, Nodes
 
 INSTANCE LinkedLists WITH NULL <- NULL
 
-(*--algorithm tortoise_hare
+(*--fair algorithm tortoise_hare
 variables
   ll \in LinkedLists(Nodes),
   tortoise = First(ll),
@@ -31,7 +31,7 @@ begin
     end if;
   end while;
 end algorithm;*)
-\* BEGIN TRANSLATION (chksum(pcal) = "9255e815" /\ chksum(tla) = "911362f7")
+\* BEGIN TRANSLATION (chksum(pcal) = "9255e815" /\ chksum(tla) = "8ce7fdcd")
 VARIABLES ll, tortoise, hare, pc
 
 vars == << ll, tortoise, hare, pc >>
@@ -83,7 +83,8 @@ Terminating == pc = "Done" /\ UNCHANGED vars
 Next == Lbl_1 \/ Lbl_2 \/ Lbl_3 \/ Lbl_4
            \/ Terminating
 
-Spec == Init /\ [][Next]_vars
+Spec == /\ Init /\ [][Next]_vars
+        /\ WF_vars(Next)
 
 Termination == <>(pc = "Done")
 
