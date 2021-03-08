@@ -16,7 +16,7 @@ define
 end define;
 
 macro request(data) begin
-  query[self] := [type |-> "request", data |-> data];
+  query[self] := [type |-> "request"] @@ data;
 end macro;
 
 macro wait_for_response() begin
@@ -45,7 +45,7 @@ begin
         assert result = db_value;
       or \* write
         with d \in Data do
-          request(d);
+          request("data" :> d);
         end with;
         Wait:
           wait_for_response();
@@ -54,7 +54,7 @@ begin
 end process;
 
 end algorithm;*)
-\* BEGIN TRANSLATION (chksum(pcal) = "dfcce7b2" /\ chksum(tla) = "764f0e3d")
+\* BEGIN TRANSLATION (chksum(pcal) = "2cfc3d16" /\ chksum(tla) = "df063601")
 VARIABLES query, db_value, pc
 
 (* define statement *)
@@ -92,7 +92,7 @@ Request(self) == /\ pc[self] = "Request"
                        /\ pc' = [pc EXCEPT ![self] = "Request"]
                        /\ query' = query
                     \/ /\ \E d \in Data:
-                            query' = [query EXCEPT ![self] = [type |-> "request", data |-> d]]
+                            query' = [query EXCEPT ![self] = [type |-> "request"] @@ ("data" :> d)]
                        /\ pc' = [pc EXCEPT ![self] = "Wait"]
                        /\ UNCHANGED result
                  /\ UNCHANGED db_value
