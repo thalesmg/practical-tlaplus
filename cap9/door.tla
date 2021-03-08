@@ -6,15 +6,16 @@ EXTENDS TLC
 
 variables
   open = FALSE,
-  locked = FALSE;
+  locked = FALSE,
+  key \in BOOLEAN;
 
 begin
   Event:
     either \* unlock
-      await locked;
+      await locked /\ (open \/ key);
       locked := FALSE;
     or \* lock
-      await ~locked;
+      await ~locked /\ (open \/ key);
       locked := TRUE;
     or \* close
       await open;
@@ -26,21 +27,22 @@ begin
     end either;
   goto Event;
 end algorithm;*)
-\* BEGIN TRANSLATION (chksum(pcal) = "ac13ecb0" /\ chksum(tla) = "1233f4c8")
-VARIABLES open, locked, pc
+\* BEGIN TRANSLATION (chksum(pcal) = "5c9661e6" /\ chksum(tla) = "97ad0773")
+VARIABLES open, locked, key, pc
 
-vars == << open, locked, pc >>
+vars == << open, locked, key, pc >>
 
 Init == (* Global variables *)
         /\ open = FALSE
         /\ locked = FALSE
+        /\ key \in BOOLEAN
         /\ pc = "Event"
 
 Event == /\ pc = "Event"
-         /\ \/ /\ locked
+         /\ \/ /\ locked /\ (open \/ key)
                /\ locked' = FALSE
                /\ open' = open
-            \/ /\ ~locked
+            \/ /\ ~locked /\ (open \/ key)
                /\ locked' = TRUE
                /\ open' = open
             \/ /\ open
@@ -51,6 +53,7 @@ Event == /\ pc = "Event"
                /\ open' = TRUE
                /\ UNCHANGED locked
          /\ pc' = "Event"
+         /\ key' = key
 
 (* Allow infinite stuttering to prevent deadlock on termination. *)
 Terminating == pc = "Done" /\ UNCHANGED vars
