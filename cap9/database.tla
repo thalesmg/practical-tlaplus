@@ -30,12 +30,12 @@ begin
       q = query[c] do
       if q.request = "write" then
         db_value := q.data;
-        query[c] := [type |-> "response"];
       elsif q.request = "read" then
         skip;
       else
         assert FALSE;
       end if;
+      query[c] := [type |-> "response", result |-> db_value];
     end with;
     goto Database;
 end process;
@@ -47,8 +47,11 @@ begin
   Request:
     while TRUE do
       either \* read
-        result := db_value;
-        assert result = db_value;
+        request([request |-> "read"]);
+        Confirm:
+          wait_for_response();
+          result := query[self].result;
+          assert result = db_value;
       or \* write
         with d \in Data do
           request([request |-> "write", data |-> d]);
@@ -60,7 +63,7 @@ begin
 end process;
 
 end algorithm;*)
-\* BEGIN TRANSLATION (chksum(pcal) = "85585962" /\ chksum(tla) = "42de345d")
+\* BEGIN TRANSLATION (chksum(pcal) = "134b3074" /\ chksum(tla) = "a13a1b56")
 VARIABLES query, db_value, pc
 
 (* define statement *)
@@ -84,37 +87,41 @@ Init == (* Global variables *)
 Database == /\ pc["Database"] = "Database"
             /\ \E c \in RequestingClients:
                  LET q == query[c] IN
-                   IF q.request = "write"
-                      THEN /\ db_value' = q.data
-                           /\ query' = [query EXCEPT ![c] = [type |-> "response"]]
-                      ELSE /\ IF q.request = "read"
-                                 THEN /\ TRUE
-                                 ELSE /\ Assert(FALSE, 
-                                                "Failure of assertion at line 37, column 9.")
-                           /\ UNCHANGED << query, db_value >>
+                   /\ IF q.request = "write"
+                         THEN /\ db_value' = q.data
+                         ELSE /\ IF q.request = "read"
+                                    THEN /\ TRUE
+                                    ELSE /\ Assert(FALSE, 
+                                                   "Failure of assertion at line 36, column 9.")
+                              /\ UNCHANGED db_value
+                   /\ query' = [query EXCEPT ![c] = [type |-> "response", result |-> db_value']]
             /\ pc' = [pc EXCEPT !["Database"] = "Database"]
             /\ UNCHANGED result
 
 database == Database
 
 Request(self) == /\ pc[self] = "Request"
-                 /\ \/ /\ result' = [result EXCEPT ![self] = db_value]
-                       /\ Assert(result'[self] = db_value, 
-                                 "Failure of assertion at line 51, column 9.")
-                       /\ pc' = [pc EXCEPT ![self] = "Request"]
-                       /\ query' = query
+                 /\ \/ /\ query' = [query EXCEPT ![self] = [type |-> "request"] @@ ([request |-> "read"])]
+                       /\ pc' = [pc EXCEPT ![self] = "Confirm"]
                     \/ /\ \E d \in Data:
                             query' = [query EXCEPT ![self] = [type |-> "request"] @@ ([request |-> "write", data |-> d])]
                        /\ pc' = [pc EXCEPT ![self] = "Wait"]
-                       /\ UNCHANGED result
-                 /\ UNCHANGED db_value
+                 /\ UNCHANGED << db_value, result >>
+
+Confirm(self) == /\ pc[self] = "Confirm"
+                 /\ query[self].type = "response"
+                 /\ result' = [result EXCEPT ![self] = query[self].result]
+                 /\ Assert(result'[self] = db_value, 
+                           "Failure of assertion at line 54, column 11.")
+                 /\ pc' = [pc EXCEPT ![self] = "Request"]
+                 /\ UNCHANGED << query, db_value >>
 
 Wait(self) == /\ pc[self] = "Wait"
               /\ query[self].type = "response"
               /\ pc' = [pc EXCEPT ![self] = "Request"]
               /\ UNCHANGED << query, db_value, result >>
 
-client(self) == Request(self) \/ Wait(self)
+client(self) == Request(self) \/ Confirm(self) \/ Wait(self)
 
 Next == database
            \/ (\E self \in Clients: client(self))
