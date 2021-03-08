@@ -18,7 +18,7 @@ begin
       await ~locked /\ (open \/ key);
       locked := TRUE;
     or \* close
-      await open;
+      await open /\ ~locked;
       open := FALSE;
     or \* open
       await ~locked;
@@ -27,7 +27,7 @@ begin
     end either;
   goto Event;
 end algorithm;*)
-\* BEGIN TRANSLATION (chksum(pcal) = "5c9661e6" /\ chksum(tla) = "97ad0773")
+\* BEGIN TRANSLATION (chksum(pcal) = "d9690749" /\ chksum(tla) = "b635a01d")
 VARIABLES open, locked, key, pc
 
 vars == << open, locked, key, pc >>
@@ -45,7 +45,7 @@ Event == /\ pc = "Event"
             \/ /\ ~locked /\ (open \/ key)
                /\ locked' = TRUE
                /\ open' = open
-            \/ /\ open
+            \/ /\ open /\ ~locked
                /\ open' = FALSE
                /\ UNCHANGED locked
             \/ /\ ~locked
