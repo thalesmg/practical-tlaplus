@@ -22,7 +22,8 @@ end define;
 
 process person \in People
 variables
-  books = {};
+  books = {},
+  wants \in SUBSET Books;
 begin
   Person:
     either
@@ -30,6 +31,7 @@ begin
       with b \in AvailableBooks do
         library[b] := library[b] - 1;
         books := books ++ b;
+        wants := wants -- b;
       end with;
     or
       \* Return:
@@ -42,15 +44,15 @@ begin
 end process;
 
 end algorithm;*)
-\* BEGIN TRANSLATION (chksum(pcal) = "16b03a3f" /\ chksum(tla) = "c02d9970")
+\* BEGIN TRANSLATION (chksum(pcal) = "14e6b169" /\ chksum(tla) = "850a02cd")
 VARIABLES library, pc
 
 (* define statement *)
 AvailableBooks == {b \in Books : library[b] > 0}
 
-VARIABLE books
+VARIABLES books, wants
 
-vars == << library, pc, books >>
+vars == << library, pc, books, wants >>
 
 ProcSet == (People)
 
@@ -58,15 +60,18 @@ Init == (* Global variables *)
         /\ library \in [Books -> NumCopies]
         (* Process person *)
         /\ books = [self \in People |-> {}]
+        /\ wants \in [People -> SUBSET Books]
         /\ pc = [self \in ProcSet |-> "Person"]
 
 Person(self) == /\ pc[self] = "Person"
                 /\ \/ /\ \E b \in AvailableBooks:
                            /\ library' = [library EXCEPT ![b] = library[b] - 1]
                            /\ books' = [books EXCEPT ![self] = books[self] ++ b]
+                           /\ wants' = [wants EXCEPT ![self] = wants[self] -- b]
                    \/ /\ \E b \in books[self]:
                            /\ library' = [library EXCEPT ![b] = library[b] + 1]
                            /\ books' = [books EXCEPT ![self] = books[self] -- b]
+                      /\ wants' = wants
                 /\ pc' = [pc EXCEPT ![self] = "Person"]
 
 person(self) == Person(self)
@@ -87,7 +92,12 @@ Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 TypeInvariant ==
      \* no negative count nor greater than the maximum
   /\ library \in [Books -> NumCopies ++ 0]
-     \* books can only be Books
+     \* people can only carry Books
   /\ books \in [People -> SUBSET Books]
+     \* people can only want Books
+  /\ wants \in [People -> SUBSET Books]
+
+Liveness ==
+  /\ <>(\A p \in People : wants[p] = {})
 
 =====================
