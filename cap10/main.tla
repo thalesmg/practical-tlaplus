@@ -84,4 +84,10 @@ Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 
 \* END TRANSLATION
 
+TypeInvariant ==
+     \* no negative count nor greater than the maximum
+  /\ library \in [Books -> NumCopies ++ 0]
+     \* books can only be Books
+  /\ books \in [People -> SUBSET Books]
+
 =====================
