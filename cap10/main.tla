@@ -16,12 +16,12 @@ set -- x == set \ {x}
 variables
   library \in [Books -> NumCopies],
   \* unordored reservations
-  reserves = [b \in Books |-> {}];
+  reserves = [b \in Books |-> <<>>];
 
 define
   AvailableBooks == {b \in Books : library[b] > 0}
   BorrowableBooks(p) ==
-    {b \in AvailableBooks : reserves[b] /= {} => p \in reserves[b]}
+    {b \in AvailableBooks : reserves[b] /= <<>> => p = Head(reserves[b])}
 end define;
 
 fair process person \in People
@@ -36,6 +36,9 @@ begin
         library[b] := library[b] - 1;
         books := books ++ b;
         wants := wants -- b;
+        if reserves[b] /= <<>> /\ self = Head(reserves[b]) then
+          reserves[b] := Tail(reserves[b]);
+        end if;
       end with;
     or
       \* Return:
@@ -45,21 +48,21 @@ begin
       end with;
     or
       \* Reserve:
-      with b \in Books do
-        reserves[b] := reserves[b] ++ self;
+      with b \in {b \in Books : self \notin PT!Range(reserves[b])} do
+        reserves[b] := Append(reserves[b], self);
       end with;
     end either;
   goto Person;
 end process;
 
 end algorithm;*)
-\* BEGIN TRANSLATION (chksum(pcal) = "260cbe95" /\ chksum(tla) = "ced1c11")
+\* BEGIN TRANSLATION (chksum(pcal) = "5f6e982b" /\ chksum(tla) = "de5c4f")
 VARIABLES library, reserves, pc
 
 (* define statement *)
 AvailableBooks == {b \in Books : library[b] > 0}
 BorrowableBooks(p) ==
-  {b \in AvailableBooks : reserves[b] /= {} => p \in reserves[b]}
+  {b \in AvailableBooks : reserves[b] /= <<>> => p = Head(reserves[b])}
 
 VARIABLES books, wants
 
@@ -69,7 +72,7 @@ ProcSet == (People)
 
 Init == (* Global variables *)
         /\ library \in [Books -> NumCopies]
-        /\ reserves = [b \in Books |-> {}]
+        /\ reserves = [b \in Books |-> <<>>]
         (* Process person *)
         /\ books = [self \in People |-> {}]
         /\ wants \in [People -> SUBSET Books]
@@ -80,13 +83,16 @@ Person(self) == /\ pc[self] = "Person"
                            /\ library' = [library EXCEPT ![b] = library[b] - 1]
                            /\ books' = [books EXCEPT ![self] = books[self] ++ b]
                            /\ wants' = [wants EXCEPT ![self] = wants[self] -- b]
-                      /\ UNCHANGED reserves
+                           /\ IF reserves[b] /= <<>> /\ self = Head(reserves[b])
+                                 THEN /\ reserves' = [reserves EXCEPT ![b] = Tail(reserves[b])]
+                                 ELSE /\ TRUE
+                                      /\ UNCHANGED reserves
                    \/ /\ \E b \in books[self]:
                            /\ library' = [library EXCEPT ![b] = library[b] + 1]
                            /\ books' = [books EXCEPT ![self] = books[self] -- b]
                       /\ UNCHANGED <<reserves, wants>>
-                   \/ /\ \E b \in Books:
-                           reserves' = [reserves EXCEPT ![b] = reserves[b] ++ self]
+                   \/ /\ \E b \in {b \in Books : self \notin PT!Range(reserves[b])}:
+                           reserves' = [reserves EXCEPT ![b] = Append(reserves[b], self)]
                       /\ UNCHANGED <<library, books, wants>>
                 /\ pc' = [pc EXCEPT ![self] = "Person"]
 
@@ -106,6 +112,11 @@ Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 
 \* END TRANSLATION
 
+NoDuplicateReservations ==
+  \A b \in Books:
+    \A i, j \in 1..Len(reserves[b]):
+      i /= j => reserves[b][i] /= reserves[b][j]
+
 TypeInvariant ==
      \* no negative count nor greater than the maximum
   /\ library \in [Books -> NumCopies ++ 0]
@@ -113,6 +124,9 @@ TypeInvariant ==
   /\ books \in [People -> SUBSET Books]
      \* people can only want Books
   /\ wants \in [People -> SUBSET Books]
+     \* reservations are people in lines
+  /\ reserves \in [Books -> Seq(People)]
+  /\ NoDuplicateReservations
 
 Liveness ==
   /\ <>(\A p \in People : wants[p] = {})
