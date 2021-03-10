@@ -14,10 +14,14 @@ set -- x == set \ {x}
 (*--algorithm library
 
 variables
-  library \in [Books -> NumCopies];
+  library \in [Books -> NumCopies],
+  \* unordored reservations
+  reserves = [b \in Books |-> {}];
 
 define
   AvailableBooks == {b \in Books : library[b] > 0}
+  BorrowableBooks(p) ==
+    {b \in AvailableBooks : reserves[b] /= {} => p \in reserves[b]}
 end define;
 
 fair process person \in People
@@ -28,7 +32,7 @@ begin
   Person:
     either
       \* Checkout:
-      with b \in AvailableBooks do
+      with b \in BorrowableBooks(self) \ books do
         library[b] := library[b] - 1;
         books := books ++ b;
         wants := wants -- b;
@@ -39,39 +43,51 @@ begin
         library[b] := library[b] + 1;
         books := books -- b;
       end with;
+    or
+      \* Reserve:
+      with b \in Books do
+        reserves[b] := reserves[b] ++ self;
+      end with;
     end either;
   goto Person;
 end process;
 
 end algorithm;*)
-\* BEGIN TRANSLATION (chksum(pcal) = "e4f64774" /\ chksum(tla) = "929b132")
-VARIABLES library, pc
+\* BEGIN TRANSLATION (chksum(pcal) = "260cbe95" /\ chksum(tla) = "ced1c11")
+VARIABLES library, reserves, pc
 
 (* define statement *)
 AvailableBooks == {b \in Books : library[b] > 0}
+BorrowableBooks(p) ==
+  {b \in AvailableBooks : reserves[b] /= {} => p \in reserves[b]}
 
 VARIABLES books, wants
 
-vars == << library, pc, books, wants >>
+vars == << library, reserves, pc, books, wants >>
 
 ProcSet == (People)
 
 Init == (* Global variables *)
         /\ library \in [Books -> NumCopies]
+        /\ reserves = [b \in Books |-> {}]
         (* Process person *)
         /\ books = [self \in People |-> {}]
         /\ wants \in [People -> SUBSET Books]
         /\ pc = [self \in ProcSet |-> "Person"]
 
 Person(self) == /\ pc[self] = "Person"
-                /\ \/ /\ \E b \in AvailableBooks:
+                /\ \/ /\ \E b \in BorrowableBooks(self) \ books[self]:
                            /\ library' = [library EXCEPT ![b] = library[b] - 1]
                            /\ books' = [books EXCEPT ![self] = books[self] ++ b]
                            /\ wants' = [wants EXCEPT ![self] = wants[self] -- b]
+                      /\ UNCHANGED reserves
                    \/ /\ \E b \in books[self]:
                            /\ library' = [library EXCEPT ![b] = library[b] + 1]
                            /\ books' = [books EXCEPT ![self] = books[self] -- b]
-                      /\ wants' = wants
+                      /\ UNCHANGED <<reserves, wants>>
+                   \/ /\ \E b \in Books:
+                           reserves' = [reserves EXCEPT ![b] = reserves[b] ++ self]
+                      /\ UNCHANGED <<library, books, wants>>
                 /\ pc' = [pc EXCEPT ![self] = "Person"]
 
 person(self) == Person(self)
