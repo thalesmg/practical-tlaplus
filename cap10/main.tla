@@ -20,7 +20,7 @@ define
   AvailableBooks == {b \in Books : library[b] > 0}
 end define;
 
-process person \in People
+fair process person \in People
 variables
   books = {},
   wants \in SUBSET Books;
@@ -44,7 +44,7 @@ begin
 end process;
 
 end algorithm;*)
-\* BEGIN TRANSLATION (chksum(pcal) = "14e6b169" /\ chksum(tla) = "850a02cd")
+\* BEGIN TRANSLATION (chksum(pcal) = "e4f64774" /\ chksum(tla) = "929b132")
 VARIABLES library, pc
 
 (* define statement *)
@@ -83,7 +83,8 @@ Terminating == /\ \A self \in ProcSet: pc[self] = "Done"
 Next == (\E self \in People: person(self))
            \/ Terminating
 
-Spec == Init /\ [][Next]_vars
+Spec == /\ Init /\ [][Next]_vars
+        /\ \A self \in People : WF_vars(person(self))
 
 Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 
