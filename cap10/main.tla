@@ -32,7 +32,7 @@ begin
   Person:
     either
       \* Checkout:
-      with b \in BorrowableBooks(self) \ books do
+      with b \in (BorrowableBooks(self) \intersect wants) \ books do
         library[b] := library[b] - 1;
         books := books ++ b;
         wants := wants -- b;
@@ -51,12 +51,17 @@ begin
       with b \in {b \in Books : self \notin PT!Range(reserves[b])} do
         reserves[b] := Append(reserves[b], self);
       end with;
+    or
+      \* Want:
+      with b \in Books \ wants do
+        wants := wants ++ b;
+      end with;
     end either;
   goto Person;
 end process;
 
 end algorithm;*)
-\* BEGIN TRANSLATION (chksum(pcal) = "5f6e982b" /\ chksum(tla) = "de5c4f")
+\* BEGIN TRANSLATION (chksum(pcal) = "a125a1be" /\ chksum(tla) = "defa0cf")
 VARIABLES library, reserves, pc
 
 (* define statement *)
@@ -79,7 +84,7 @@ Init == (* Global variables *)
         /\ pc = [self \in ProcSet |-> "Person"]
 
 Person(self) == /\ pc[self] = "Person"
-                /\ \/ /\ \E b \in BorrowableBooks(self) \ books[self]:
+                /\ \/ /\ \E b \in (BorrowableBooks(self) \intersect wants[self]) \ books[self]:
                            /\ library' = [library EXCEPT ![b] = library[b] - 1]
                            /\ books' = [books EXCEPT ![self] = books[self] ++ b]
                            /\ wants' = [wants EXCEPT ![self] = wants[self] -- b]
@@ -94,6 +99,9 @@ Person(self) == /\ pc[self] = "Person"
                    \/ /\ \E b \in {b \in Books : self \notin PT!Range(reserves[b])}:
                            reserves' = [reserves EXCEPT ![b] = Append(reserves[b], self)]
                       /\ UNCHANGED <<library, books, wants>>
+                   \/ /\ \E b \in Books \ wants[self]:
+                           wants' = [wants EXCEPT ![self] = wants[self] ++ b]
+                      /\ UNCHANGED <<library, reserves, books>>
                 /\ pc' = [pc EXCEPT ![self] = "Person"]
 
 person(self) == Person(self)
@@ -129,6 +137,8 @@ TypeInvariant ==
   /\ NoDuplicateReservations
 
 Liveness ==
-  /\ <>(\A p \in People : wants[p] = {})
+  \A p \in People:
+    \A b \in Books:
+      b \in wants[p] ~> b \notin wants[p]
 
 =====================
