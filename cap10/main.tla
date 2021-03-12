@@ -1,6 +1,6 @@
 ---- MODULE main ----
 
-EXTENDS TLC, Integers, Sequences
+EXTENDS TLC, Integers, Sequences, FiniteSets
 
 CONSTANTS Books, People, NumCopies
 
@@ -49,7 +49,7 @@ begin
         end with;
       or
         \* Reserve:
-        with b \in {b \in Books : self \notin PT!Range(reserves[b])} do
+        with b \in {b \in wants : self \notin PT!Range(reserves[b])} do
           reserves[b] := Append(reserves[b], self);
         end with;
       or
@@ -62,8 +62,17 @@ begin
     end while;
 end process;
 
+fair process book_reservations \in Books
+begin
+  ExpireReservations:
+    while TRUE do
+      await reserves[self] /= <<>>;
+      reserves[self] := Tail(reserves[self]);
+    end while;
+end process;
+
 end algorithm;*)
-\* BEGIN TRANSLATION (chksum(pcal) = "5d741f47" /\ chksum(tla) = "81dacd30")
+\* BEGIN TRANSLATION (chksum(pcal) = "c35d540" /\ chksum(tla) = "43cd339a")
 VARIABLES library, reserves
 
 (* define statement *)
@@ -75,7 +84,7 @@ VARIABLES books, wants
 
 vars == << library, reserves, books, wants >>
 
-ProcSet == (People)
+ProcSet == (People) \cup (Books)
 
 Init == (* Global variables *)
         /\ library \in [Books -> NumCopies]
@@ -96,7 +105,7 @@ person(self) == \/ /\ \E b \in (BorrowableBooks(self) \intersect wants[self]) \ 
                         /\ library' = [library EXCEPT ![b] = library[b] + 1]
                         /\ books' = [books EXCEPT ![self] = books[self] -- b]
                    /\ UNCHANGED <<reserves, wants>>
-                \/ /\ \E b \in {b \in Books : self \notin PT!Range(reserves[b])}:
+                \/ /\ \E b \in {b \in wants[self] : self \notin PT!Range(reserves[b])}:
                         reserves' = [reserves EXCEPT ![b] = Append(reserves[b], self)]
                    /\ UNCHANGED <<library, books, wants>>
                 \/ /\ wants[self] = {}
@@ -104,10 +113,16 @@ person(self) == \/ /\ \E b \in (BorrowableBooks(self) \intersect wants[self]) \ 
                         wants' = [wants EXCEPT ![self] = b]
                    /\ UNCHANGED <<library, reserves, books>>
 
+book_reservations(self) == /\ reserves[self] /= <<>>
+                           /\ reserves' = [reserves EXCEPT ![self] = Tail(reserves[self])]
+                           /\ UNCHANGED << library, books, wants >>
+
 Next == (\E self \in People: person(self))
+           \/ (\E self \in Books: book_reservations(self))
 
 Spec == /\ Init /\ [][Next]_vars
         /\ \A self \in People : WF_vars(person(self))
+        /\ \A self \in Books : WF_vars(book_reservations(self))
 
 \* END TRANSLATION
 
@@ -127,9 +142,15 @@ TypeInvariant ==
   /\ reserves \in [Books -> Seq(People)]
   /\ NoDuplicateReservations
 
+NextInLine(p, b) ==
+  /\ reserves[b] /= <<>>
+  /\ Head(reserves[b]) = p
+
 Liveness ==
   \A p \in People:
     \A b \in Books:
-      b \in wants[p] ~> b \notin wants[p]
+      b \in wants[p] ~>
+        \/ b \notin wants[p]
+        \/ NextInLine(p, b)
 
 =====================
