@@ -32,6 +32,7 @@ procedure work()
       end while;
     WriteResult:
       result[self] := total;
+      return;
 end procedure;
 
 process reducer = Reducer
@@ -65,7 +66,7 @@ begin
 end process;
 
 end algorithm;*)
-\* BEGIN TRANSLATION (chksum(pcal) = "2c4474ea" /\ chksum(tla) = "392445b2")
+\* BEGIN TRANSLATION (chksum(pcal) = "c3c288f5" /\ chksum(tla) = "2036140d")
 VARIABLES input, queue, result, pc, stack, total, final, consumed
 
 vars == << input, queue, result, pc, stack, total, final, consumed >>
@@ -102,9 +103,10 @@ Process(self) == /\ pc[self] = "Process"
 
 WriteResult(self) == /\ pc[self] = "WriteResult"
                      /\ result' = [result EXCEPT ![self] = total[self]]
-                     /\ pc' = [pc EXCEPT ![self] = "Error"]
-                     /\ UNCHANGED << input, queue, stack, total, final, 
-                                     consumed >>
+                     /\ pc' = [pc EXCEPT ![self] = Head(stack[self]).pc]
+                     /\ total' = [total EXCEPT ![self] = Head(stack[self]).total]
+                     /\ stack' = [stack EXCEPT ![self] = Tail(stack[self])]
+                     /\ UNCHANGED << input, queue, final, consumed >>
 
 work(self) == WaitForQueue(self) \/ Process(self) \/ WriteResult(self)
 
@@ -130,7 +132,7 @@ Reduce == /\ pc[Reducer] = "Reduce"
 
 Finish == /\ pc[Reducer] = "Finish"
           /\ Assert(final = SumSeq(input), 
-                    "Failure of assertion at line 58, column 5.")
+                    "Failure of assertion at line 59, column 5.")
           /\ pc' = [pc EXCEPT ![Reducer] = "Done"]
           /\ UNCHANGED << input, queue, result, stack, total, final, consumed >>
 
