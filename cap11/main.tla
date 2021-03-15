@@ -20,18 +20,19 @@ UnfairWorkers == Workers \ FairWorkers
 variables
   input \in PossibleInputs,
   queue = [w \in Workers |-> <<>>],
-  result = [w \in Workers |-> NULL];
+  result = [w \in Workers |-> [total |-> NULL, count |-> NULL]];
 
 macro reduce() begin
-  with w \in {w \in Workers: ~consumed[w] /\ result[w] /= NULL} do
-    final := final + result[w];
+  with w \in {w \in Workers: ~consumed[w] /\ result[w].count = Len(assignments[w])} do
+    final := final + result[w].total;
     consumed[w] := TRUE;
   end with;
 end macro;
 
 procedure work()
   variables
-    total = 0;
+    total = 0,
+    count = 0;
   begin
     WaitForQueue:
       await queue[self] /= <<>>;
@@ -39,9 +40,10 @@ procedure work()
       while queue[self] /= <<>> do
         total := total + Head(queue[self]);
         queue[self] := Tail(queue[self]);
+        count := count + 1;
       end while;
     WriteResult:
-      result[self] := total;
+      result[self] := [total |-> total, count |-> count];
       goto WaitForQueue;
 end procedure;
 
@@ -64,7 +66,8 @@ begin
       either
         reduce();
       or \* reassign
-        with from_worker \in {w \in UnfairWorkers : ~consumed[w] /\ result[w] = NULL},
+        with from_worker \in {w \in UnfairWorkers :
+                              ~consumed[w] /\ result[w].count /= Len(assignments[w])},
              to_worker \in FairWorkers do
           \* mark failed as consumed to avoid reading it again
           \* unmark the fair worker to wait on it again
@@ -75,6 +78,7 @@ begin
           assignments[to_worker] :=
             assignments[to_worker] \o assignments[from_worker];
           queue[to_worker] := queue[to_worker] \o assignments[from_worker];
+          result[to_worker] := [total |-> NULL, count |-> NULL];
         end with;
       end either;
     end while;
@@ -95,49 +99,52 @@ begin
 end process;
 
 end algorithm;*)
-\* BEGIN TRANSLATION (chksum(pcal) = "a7940d31" /\ chksum(tla) = "bbab062f")
-VARIABLES input, queue, result, pc, stack, total, final, assignments,
+\* BEGIN TRANSLATION (chksum(pcal) = "23df99d1" /\ chksum(tla) = "995e3192")
+VARIABLES input, queue, result, pc, stack, total, count, final, assignments, 
           consumed
 
-vars == << input, queue, result, pc, stack, total, final, assignments,
+vars == << input, queue, result, pc, stack, total, count, final, assignments, 
            consumed >>
 
-ProcSet == {Reducer} \cup (Workers)
+ProcSet == {Reducer} \cup (FairWorkers) \cup (UnfairWorkers)
 
 Init == (* Global variables *)
         /\ input \in PossibleInputs
         /\ queue = [w \in Workers |-> <<>>]
-        /\ result = [w \in Workers |-> NULL]
+        /\ result = [w \in Workers |-> [total |-> NULL, count |-> NULL]]
         (* Procedure work *)
         /\ total = [ self \in ProcSet |-> 0]
+        /\ count = [ self \in ProcSet |-> 0]
         (* Process reducer *)
         /\ final = 0
         /\ assignments = [w \in Workers |-> <<>>]
         /\ consumed = [w \in Workers |-> FALSE]
         /\ stack = [self \in ProcSet |-> << >>]
         /\ pc = [self \in ProcSet |-> CASE self = Reducer -> "Schedule"
-                                        [] self \in Workers -> "Work"]
+                                        [] self \in FairWorkers -> "FairWorker"
+                                        [] self \in UnfairWorkers -> "UnfairWorker"]
 
 WaitForQueue(self) == /\ pc[self] = "WaitForQueue"
                       /\ queue[self] /= <<>>
                       /\ pc' = [pc EXCEPT ![self] = "Process"]
-                      /\ UNCHANGED << input, queue, result, stack, total,
-                                      final, assignments, consumed >>
+                      /\ UNCHANGED << input, queue, result, stack, total, 
+                                      count, final, assignments, consumed >>
 
 Process(self) == /\ pc[self] = "Process"
                  /\ IF queue[self] /= <<>>
                        THEN /\ total' = [total EXCEPT ![self] = total[self] + Head(queue[self])]
                             /\ queue' = [queue EXCEPT ![self] = Tail(queue[self])]
+                            /\ count' = [count EXCEPT ![self] = count[self] + 1]
                             /\ pc' = [pc EXCEPT ![self] = "Process"]
                        ELSE /\ pc' = [pc EXCEPT ![self] = "WriteResult"]
-                            /\ UNCHANGED << queue, total >>
-                 /\ UNCHANGED << input, result, stack, final, assignments,
+                            /\ UNCHANGED << queue, total, count >>
+                 /\ UNCHANGED << input, result, stack, final, assignments, 
                                  consumed >>
 
 WriteResult(self) == /\ pc[self] = "WriteResult"
-                     /\ result' = [result EXCEPT ![self] = total[self]]
+                     /\ result' = [result EXCEPT ![self] = [total |-> total[self], count |-> count[self]]]
                      /\ pc' = [pc EXCEPT ![self] = "WaitForQueue"]
-                     /\ UNCHANGED << input, queue, stack, total, final,
+                     /\ UNCHANGED << input, queue, stack, total, count, final, 
                                      assignments, consumed >>
 
 work(self) == WaitForQueue(self) \/ Process(self) \/ WriteResult(self)
@@ -150,46 +157,66 @@ Schedule == /\ pc[Reducer] = "Schedule"
                              ]
                  /\ assignments' = queue'
             /\ pc' = [pc EXCEPT ![Reducer] = "Reduce"]
-            /\ UNCHANGED << input, result, stack, total, final, consumed >>
+            /\ UNCHANGED << input, result, stack, total, count, final, 
+                            consumed >>
 
 Reduce == /\ pc[Reducer] = "Reduce"
           /\ IF \E w \in Workers : ~consumed[w]
-                THEN /\ \/ /\ \E w \in {w \in Workers: ~consumed[w] /\ result[w] /= NULL}:
-                                /\ final' = final + result[w]
+                THEN /\ \/ /\ \E w \in {w \in Workers: ~consumed[w] /\ result[w].count = Len(assignments[w])}:
+                                /\ final' = final + result[w].total
                                 /\ consumed' = [consumed EXCEPT ![w] = TRUE]
-                           /\ UNCHANGED <<queue, assignments>>
-                        \/ /\ \E from_worker \in {w \in UnfairWorkers : ~consumed[w] /\ result[w] = NULL}:
+                           /\ UNCHANGED <<queue, result, assignments>>
+                        \/ /\ \E from_worker \in {w \in UnfairWorkers :
+                                                  ~consumed[w] /\ result[w].count /= Len(assignments[w])}:
                                 \E to_worker \in FairWorkers:
                                   /\ consumed' = [consumed EXCEPT ![from_worker] = TRUE,
                                                                   ![to_worker] = FALSE]
                                   /\ assignments' = [assignments EXCEPT ![to_worker] = assignments[to_worker] \o assignments[from_worker]]
                                   /\ queue' = [queue EXCEPT ![to_worker] = queue[to_worker] \o assignments'[from_worker]]
+                                  /\ result' = [result EXCEPT ![to_worker] = [total |-> NULL, count |-> NULL]]
                            /\ final' = final
                      /\ pc' = [pc EXCEPT ![Reducer] = "Reduce"]
                 ELSE /\ pc' = [pc EXCEPT ![Reducer] = "Finish"]
-                     /\ UNCHANGED << queue, final, assignments, consumed >>
-          /\ UNCHANGED << input, result, stack, total >>
+                     /\ UNCHANGED << queue, result, final, assignments, 
+                                     consumed >>
+          /\ UNCHANGED << input, stack, total, count >>
 
 Finish == /\ pc[Reducer] = "Finish"
-          /\ Assert(final = SumSeq(input),
-                    "Failure of assertion at line 82, column 5.")
+          /\ Assert(final = SumSeq(input), 
+                    "Failure of assertion at line 86, column 5.")
           /\ pc' = [pc EXCEPT ![Reducer] = "Done"]
-          /\ UNCHANGED << input, queue, result, stack, total, final,
+          /\ UNCHANGED << input, queue, result, stack, total, count, final, 
                           assignments, consumed >>
 
 reducer == Schedule \/ Reduce \/ Finish
 
-Work(self) == /\ pc[self] = "Work"
-              /\ stack' = [stack EXCEPT ![self] = << [ procedure |->  "work",
-                                                       pc        |->  "Done",
-                                                       total     |->  total[self] ] >>
-                                                   \o stack[self]]
-              /\ total' = [total EXCEPT ![self] = 0]
-              /\ pc' = [pc EXCEPT ![self] = "WaitForQueue"]
-              /\ UNCHANGED << input, queue, result, final, assignments,
-                              consumed >>
+FairWorker(self) == /\ pc[self] = "FairWorker"
+                    /\ stack' = [stack EXCEPT ![self] = << [ procedure |->  "work",
+                                                             pc        |->  "Done",
+                                                             total     |->  total[self],
+                                                             count     |->  count[self] ] >>
+                                                         \o stack[self]]
+                    /\ total' = [total EXCEPT ![self] = 0]
+                    /\ count' = [count EXCEPT ![self] = 0]
+                    /\ pc' = [pc EXCEPT ![self] = "WaitForQueue"]
+                    /\ UNCHANGED << input, queue, result, final, assignments, 
+                                    consumed >>
 
-worker(self) == Work(self)
+fair_worker(self) == FairWorker(self)
+
+UnfairWorker(self) == /\ pc[self] = "UnfairWorker"
+                      /\ stack' = [stack EXCEPT ![self] = << [ procedure |->  "work",
+                                                               pc        |->  "Done",
+                                                               total     |->  total[self],
+                                                               count     |->  count[self] ] >>
+                                                           \o stack[self]]
+                      /\ total' = [total EXCEPT ![self] = 0]
+                      /\ count' = [count EXCEPT ![self] = 0]
+                      /\ pc' = [pc EXCEPT ![self] = "WaitForQueue"]
+                      /\ UNCHANGED << input, queue, result, final, assignments, 
+                                      consumed >>
+
+unfair_worker(self) == UnfairWorker(self)
 
 (* Allow infinite stuttering to prevent deadlock on termination. *)
 Terminating == /\ \A self \in ProcSet: pc[self] = "Done"
@@ -197,11 +224,13 @@ Terminating == /\ \A self \in ProcSet: pc[self] = "Done"
 
 Next == reducer
            \/ (\E self \in ProcSet: work(self))
-           \/ (\E self \in Workers: worker(self))
+           \/ (\E self \in FairWorkers: fair_worker(self))
+           \/ (\E self \in UnfairWorkers: unfair_worker(self))
            \/ Terminating
 
 Spec == /\ Init /\ [][Next]_vars
         /\ WF_vars(reducer)
+        /\ \A self \in FairWorkers : WF_vars(fair_worker(self)) /\ WF_vars(work(self))
 
 Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 
