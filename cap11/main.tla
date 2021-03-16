@@ -82,6 +82,9 @@ begin
         IN PT!SelectSeqByIndex(input, LAMBDA i: i % Len(worker_order) = offset)
       ];
       assignments := queue;
+      status := [ w \in Workers |->
+        IF assignments[w] = <<>> THEN "inactive" ELSE "active"
+      ];
     end with;
   Reduce:
     while ActiveWorkers /= {} do
@@ -120,7 +123,7 @@ begin
 end process;
 
 end algorithm;*)
-\* BEGIN TRANSLATION (chksum(pcal) = "ce7afc45" /\ chksum(tla) = "98f0772")
+\* BEGIN TRANSLATION (chksum(pcal) = "e02af1ab" /\ chksum(tla) = "46fff3d9")
 VARIABLES input, queue, status, result, pc, stack
 
 (* define statement *)
@@ -195,8 +198,11 @@ Schedule == /\ pc[Reducer] = "Schedule"
                                IN PT!SelectSeqByIndex(input, LAMBDA i: i % Len(worker_order) = offset)
                              ]
                  /\ assignments' = queue'
+                 /\ status' =           [ w \in Workers |->
+                                IF assignments'[w] = <<>> THEN "inactive" ELSE "active"
+                              ]
             /\ pc' = [pc EXCEPT ![Reducer] = "Reduce"]
-            /\ UNCHANGED << input, status, result, stack, total, count, final >>
+            /\ UNCHANGED << input, result, stack, total, count, final >>
 
 Reduce == /\ pc[Reducer] = "Reduce"
           /\ IF ActiveWorkers /= {}
@@ -218,7 +224,7 @@ Reduce == /\ pc[Reducer] = "Reduce"
 
 Finish == /\ pc[Reducer] = "Finish"
           /\ Assert(SumSeq(final) = SumSeq(input), 
-                    "Failure of assertion at line 107, column 5.")
+                    "Failure of assertion at line 110, column 5.")
           /\ pc' = [pc EXCEPT ![Reducer] = "Done"]
           /\ UNCHANGED << input, queue, status, result, stack, total, count, 
                           assignments, final >>
