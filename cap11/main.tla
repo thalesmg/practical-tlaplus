@@ -271,7 +271,8 @@ Termination == <>(\A self \in ProcSet: pc[self] = "Done")
 
 \* END TRANSLATION
 
-Liveness ==
-  <>[](SumSeq(final) = SumSeq(input))
+Liveness == <>[]( SumSeq(final) = SumSeq(input) )
+
+ReducerTerminates == <>( pc[Reducer] = "Finish" )
 
 =====================
